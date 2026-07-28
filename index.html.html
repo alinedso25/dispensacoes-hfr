@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Processador de Dispensações — HFR</title>
+<style>
+  :root {
+    --bg:     #0F1923;
+    --panel:  #1A2637;
+    --border: #263545;
+    --gold:   #C9A84C;
+    --steel:  #4A7FA5;
+    --teal:   #2A9D8F;
+    --red:    #C0392B;
+    --txt:    #E8EDF2;
+    --txt2:   #8FA3B1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--txt);
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px;
+  }
+  header {
+    width: 100%; max-width: 720px;
+    display: flex; align-items: center; gap: 18px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--border); padding-bottom: 24px;
+  }
+  .logo-mark {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 800; color: var(--bg); flex-shrink: 0;
+  }
+  header h1 { font-size: 18px; font-weight: 700; color: var(--txt); line-height: 1.2; }
+  header p  { font-size: 13px; color: var(--txt2); margin-top: 2px; }
+  .card {
+    width: 100%; max-width: 720px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px 32px; margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 700; color: var(--txt2);
+    text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px;
+  }
+  .drop-zone {
+    border: 2px dashed var(--border); border-radius: 8px;
+    padding: 36px 24px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--gold); background: rgba(201,168,76,.06); }
+  .drop-zone.filled { border-color: var(--teal); border-style: solid; background: rgba(42,157,143,.06); }
+  .drop-icon  { font-size: 32px; margin-bottom: 10px; }
+  .drop-label { font-size: 15px; color: var(--txt); font-weight: 600; }
+  .drop-sub   { font-size: 13px; color: var(--txt2); margin-top: 6px; }
+  .drop-file  { font-size: 13px; color: var(--teal); font-weight: 600; margin-top: 8px; display: none; }
+  .drop-zone.filled .drop-file  { display: block; }
+  .drop-zone.filled .drop-label { color: var(--teal); }
+  input[type="file"] { display: none; }
+  .btn-run {
+    width: 100%; padding: 16px;
+    background: var(--gold); color: var(--bg);
+    border: none; border-radius: 8px;
+    font-size: 16px; font-weight: 800; cursor: pointer;
+    transition: opacity .2s, transform .1s; letter-spacing: .02em;
+  }
+  .btn-run:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
+  .btn-run:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  #log {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px;
+    font-family: 'Courier New', monospace; font-size: 13px;
+    line-height: 1.7; max-height: 260px; overflow-y: auto; display: none;
+  }
+  #log.visible { display: block; }
+  .log-ok   { color: var(--teal); }
+  .log-err  { color: var(--red); }
+  .log-info { color: var(--txt2); }
+  .log-bold { color: var(--gold); font-weight: 700; }
+  #resultado {
+    display: none; align-items: center; gap: 16px;
+    padding: 20px 24px;
+    background: rgba(42,157,143,.1); border: 1px solid var(--teal);
+    border-radius: 8px; margin-top: 16px;
+  }
+  #resultado.visible { display: flex; }
+  .res-icon { font-size: 28px; }
+  .res-txt  { font-size: 15px; font-weight: 600; color: var(--teal); }
+  .res-sub  { font-size: 13px; color: var(--txt2); margin-top: 3px; }
+  .btn-dl {
+    margin-left: auto; padding: 10px 20px;
+    background: var(--teal); color: white;
+    border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: opacity .2s; white-space: nowrap;
+  }
+  .btn-dl:hover { opacity: .85; }
+  .progress-wrap { height: 4px; background: var(--border); border-radius: 2px; margin: 14px 0; display: none; }
+  .progress-wrap.visible { display: block; }
+  .progress-bar {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, var(--steel), var(--gold));
+    width: 0%; transition: width .3s;
+  }
+  .hint { font-size: 12px; color: var(--txt2); text-align: center; margin-top: 8px; line-height: 1.6; }
+  .hint b { color: var(--txt); }
+  footer { margin-top: 40px; font-size: 12px; color: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">HFR</div>
+  <div>
+    <h1>Processador de Dispensações de Estoque</h1>
+    <p>Hospital Felício Rocho · Tratamento automático do relatório SoulMV</p>
+  </div>
+</header>
+
+<div class="card">
+  <div class="card-title">1 · Arquivo de dispensações (XLSX do ERP)</div>
+  <div class="drop-zone" id="drop1" onclick="document.getElementById('file1').click()">
+    <div class="drop-icon">📂</div>
+    <div class="drop-label">Clique para selecionar o arquivo</div>
+    <div class="drop-sub">Arraste o XLSX aqui ou clique para buscar</div>
+    <div class="drop-file" id="drop1-name"></div>
+  </div>
+  <input type="file" id="file1" accept=".xlsx">
+</div>
+
+<div class="card">
+  <div class="card-title">2 · Tabela Auxiliar (Espécie e Classe)</div>
+  <div class="drop-zone" id="drop2" onclick="document.getElementById('file2').click()">
+    <div class="drop-icon">📋</div>
+    <div class="drop-label">Clique para selecionar a Tabela Auxiliar</div>
+    <div class="drop-sub">Arquivo Tabela_Auxiliar.xlsx</div>
+    <div class="drop-file" id="drop2-name"></div>
+  </div>
+  <input type="file" id="file2" accept=".xlsx">
+</div>
+
+<div class="card">
+  <div class="card-title">3 · Processar</div>
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+  <div id="log"></div>
+  <div id="resultado">
+    <div class="res-icon">✅</div>
+    <div>
+      <div class="res-txt" id="res-txt">Processamento concluído</div>
+      <div class="res-sub" id="res-sub"></div>
+    </div>
+    <button class="btn-dl" id="btn-dl" onclick="baixarResultado()">⬇ Baixar XLSX</button>
+  </div>
+  <br>
+  <button class="btn-run" id="btn-run" onclick="processar()" disabled>
+    Processar Dispensações
+  </button>
+  <p class="hint">
+    O arquivo gerado terá a tabela tratada e pronta para análise.<br>
+    <b>Funciona no navegador — sem instalar nada.</b>
+  </p>
+</div>
+
+<footer>Hospital Felício Rocho · Controladoria · v1.0</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+let arquivo1 = null, arquivo2 = null, resultadoBlob = null;
+
+function setupDrop(dropId, inputId, num) {
+  const drop  = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  input.addEventListener('change', e => {
+    if (e.target.files[0]) setFile(num, e.target.files[0], drop);
+  });
+  drop.addEventListener('dragover',  e => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('drag');
+    if (e.dataTransfer.files[0]) setFile(num, e.dataTransfer.files[0], drop);
+  });
+}
+
+function setFile(num, file, drop) {
+  if (!file.name.endsWith('.xlsx')) { alert('Selecione um arquivo .xlsx'); return; }
+  if (num === 1) arquivo1 = file;
+  else           arquivo2 = file;
+  drop.classList.add('filled');
+  document.getElementById('drop' + num + '-name').textContent = '✓ ' + file.name;
+  drop.querySelector('.drop-label').textContent = file.name;
+  document.getElementById('btn-run').disabled = !(arquivo1 && arquivo2);
+}
+
+setupDrop('drop1', 'file1', 1);
+setupDrop('drop2', 'file2', 2);
+
+const logEl = document.getElementById('log');
+function log(msg, tipo) {
+  logEl.classList.add('visible');
+  const d = document.createElement('div');
+  d.className = 'log-' + (tipo || 'info');
+  d.innerHTML = msg;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function setProgress(pct) {
+  document.getElementById('progress-wrap').classList.add('visible');
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+function lerXLSX(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsArrayBuffer(file);
+  });
+}
+function parseBRL(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+
+async function processar() {
+  logEl.innerHTML = '';
+  document.getElementById('resultado').classList.remove('visible');
+  resultadoBlob = null;
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true; btn.textContent = 'Processando...';
+
+  try {
+    log('Lendo arquivo de dispensações...', 'info');
+    setProgress(10);
+
+    const buf1 = await lerXLSX(arquivo1);
+    const wb1  = XLSX.read(buf1, { type: 'array', raw: true });
+    const rows = XLSX.utils.sheet_to_json(wb1.Sheets[wb1.SheetNames[0]], { header: 1, defval: null, raw: true });
+    log('Arquivo carregado: <b>' + rows.length.toLocaleString('pt-BR') + '</b> linhas brutas', 'ok');
+    setProgress(25);
+
+    log('Lendo Tabela Auxiliar...', 'info');
+    const buf2    = await lerXLSX(arquivo2);
+    const wb2     = XLSX.read(buf2, { type: 'array', raw: true });
+    const auxRows = XLSX.utils.sheet_to_json(wb2.Sheets[wb2.SheetNames[0]], { header: 1, defval: null, raw: true });
+
+    const auxMap = {};
+    const auxHdr = auxRows[0] || [];
+    const iCod = auxHdr.findIndex(h => String(h||'').includes('CD') && String(h||'').includes('PRODUTO'));
+    const iEsp = auxHdr.findIndex(h => String(h||'').toUpperCase().replace('É','E').includes('ESPECIE'));
+    const iCls = auxHdr.findIndex(h => String(h||'').toUpperCase().includes('CLASSE'));
+    for (let i = 1; i < auxRows.length; i++) {
+      const r = auxRows[i];
+      if (!r || r.every(c => c === null)) continue;
+      const cod = String(r[iCod] || '').trim();
+      if (cod) auxMap[cod] = { ESPECIE: String(r[iEsp]||'').trim(), CLASSE: String(r[iCls]||'').trim() };
+    }
+    log('Tabela Auxiliar: <b>' + Object.keys(auxMap).length.toLocaleString('pt-BR') + '</b> produtos mapeados', 'ok');
+    setProgress(40);
+
+    log('Processando linhas...', 'info');
+    let setorCod = null, setorNome = null;
+    const records = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.every(c => c === null)) continue;
+      if (String(row[4]||'').trim() === 'Setor:') {
+        setorCod  = String(row[8] ||'').trim();
+        setorNome = String(row[12]||'').trim();
+        continue;
+      }
+      const prod = String(row[7]||'').trim();
+      const pri  = prod.charAt(0);
+      if (pri >= '0' && pri <= '9' && prod.includes(' - ')) {
+        const sep   = prod.indexOf(' - ');
+        const cdP   = prod.substring(0, sep).trim();
+        const nmP   = prod.substring(sep + 3).trim();
+        const aux   = auxMap[cdP] || { ESPECIE: '', CLASSE: '' };
+        records.push({
+          CD_SETOR: setorCod, SETOR: setorNome,
+          CD_PRODUTO: cdP, PRODUTO: nmP,
+          ESPECIE: aux.ESPECIE, CLASSE: aux.CLASSE,
+          UNIDADE: String(row[16]||'').trim(),
+          VL_UNITARIO: parseBRL(row[21]),
+          QUANTIDADE:  parseBRL(row[29]),
+          VL_TOTAL:    parseBRL(row[38]),
+        });
+      }
+      if (i % 5000 === 0) setProgress(40 + Math.round(i / rows.length * 45));
+    }
+
+    setProgress(88);
+    log('Registros extraídos: <b>' + records.length.toLocaleString('pt-BR') + '</b>', 'ok');
+
+    const totalCalc = records.reduce((s, r) => s + r.VL_TOTAL, 0);
+    const totalFmt  = totalCalc.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    log('Total calculado: <span class="log-bold">' + totalFmt + '</span>', 'ok');
+
+    const diff = Math.abs(totalCalc - 7140973.05);
+    if (diff < 1.0) {
+      log('Validação: diferença de R$ ' + diff.toFixed(2) + ' — OK ✓', 'ok');
+    } else {
+      log('Atenção: diferença de R$ ' + diff.toFixed(2) + ' vs. arquivo original (normal para períodos diferentes)', 'err');
+    }
+
+    const semEsp = records.filter(r => !r.ESPECIE).length;
+    if (semEsp > 0) log('Produtos sem espécie: ' + semEsp + ' (ausentes na Tabela Auxiliar)', 'err');
+    else            log('Cobertura Tabela Auxiliar: 100% ✓', 'ok');
+
+    setProgress(92);
+    log('Gerando arquivo de saída...', 'info');
+
+    const wbOut  = XLSX.utils.book_new();
+    const wsData = XLSX.utils.json_to_sheet(records);
+    wsData['!cols'] = [{wch:10},{wch:36},{wch:12},{wch:48},{wch:28},{wch:30},{wch:12},{wch:14},{wch:12},{wch:14}];
+    XLSX.utils.book_append_sheet(wbOut, wsData, 'Dispensacoes');
+
+    const espMap = {};
+    records.forEach(r => {
+      const k = r.ESPECIE || '(sem especie)';
+      if (!espMap[k]) espMap[k] = { ESPECIE: k, QTD_REGISTROS: 0, QUANTIDADE: 0, VL_TOTAL: 0 };
+      espMap[k].QTD_REGISTROS++;
+      espMap[k].QUANTIDADE += r.QUANTIDADE;
+      espMap[k].VL_TOTAL   += r.VL_TOTAL;
+    });
+    const resumo = Object.values(espMap).sort((a,b) => b.VL_TOTAL - a.VL_TOTAL);
+    resumo.push({ ESPECIE: 'TOTAL GERAL', QTD_REGISTROS: records.length,
+                  QUANTIDADE: records.reduce((s,r)=>s+r.QUANTIDADE,0), VL_TOTAL: totalCalc });
+    const wsRes = XLSX.utils.json_to_sheet(resumo);
+    wsRes['!cols'] = [{wch:36},{wch:16},{wch:14},{wch:16}];
+    XLSX.utils.book_append_sheet(wbOut, wsRes, 'Resumo_Especie');
+
+    const bytes = XLSX.write(wbOut, { bookType: 'xlsx', type: 'array' });
+    resultadoBlob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    setProgress(100);
+    const nomeArq = arquivo1.name.replace('.xlsx', '') + '_TRATADO.xlsx';
+    document.getElementById('res-txt').textContent = 'Processamento concluído com sucesso';
+    document.getElementById('res-sub').textContent = records.length.toLocaleString('pt-BR') + ' registros · Total: ' + totalFmt;
+    document.getElementById('btn-dl').dataset.nome = nomeArq;
+    document.getElementById('resultado').classList.add('visible');
+    log('<span class="log-bold">Pronto! Clique em Baixar XLSX para salvar.</span>', 'ok');
+
+  } catch (err) {
+    log('Erro: ' + err.message, 'err');
+    console.error(err);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Processar Dispensações';
+}
+
+function baixarResultado() {
+  if (!resultadoBlob) return;
+  const nome = document.getElementById('btn-dl').dataset.nome || 'dispensacoes_tratadas.xlsx';
+  const url  = URL.createObjectURL(resultadoBlob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = nome; a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
